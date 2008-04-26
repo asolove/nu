@@ -17,6 +17,7 @@
 
 (global LPAREN '(')
 (global RPAREN ')')
+(global DBLQUOTE '"')
 
 (load "nibtools")	;; dependency, needed to insert menu item
 
@@ -26,28 +27,36 @@
           (block v)
           v))
 
+
 (class NSTextStorage
      
      ;; Search back from a closing paren to find its match.
      (imethod (int) findOpeningParenForParenAt:(int) position backTo:(int) startOfInput is
           (let ((count 0)
+                (inString NO)
                 (index position)
                 (found NO)
                 (c nil))
                (while (and (>= index startOfInput) (eq found NO))
                       (set c ((self string) characterAtIndex:index))
+                      
                       (case c
-                            (LPAREN	(set count (- count 1)))
-                            (RPAREN (set count (+ count 1)))
+                            (DBLQUOTE (unless (eq '\\' ((self string) characterAtIndex:(- index 1)))
+                                              (set inString (not inString))))
+                            (LPAREN	(unless inString (set count (- count 1))))
+                            (RPAREN (unless inString (set count (+ count 1))))
                             (else   nil))
                       (if (eq count 0)
-                          (then (set found YES))
+                          (set found YES)
                           (else (set index (- index 1)))))
-               (if found (then index) (else -1))))
+               (if found
+                   (then index)
+                   (else (if inString (then position) (else -1))))))
      
      ;; Search forward from an opening paren to find its match.
      (imethod (int) findClosingParenForParenAt:(int) position is
           (let ((count 0)
+                (inString NO)
                 (index position)
                 (maxindex (self length))
                 (found NO)
@@ -55,13 +64,17 @@
                (while (and (< index maxindex) (eq found NO))
                       (set c ((self string) characterAtIndex:index))
                       (case c
-                            (LPAREN	(set count (- count 1)))
-                            (RPAREN (set count (+ count 1)))
+                            (DBLQUOTE (unless (eq '\\' ((self string) characterAtIndex:(- index 1)))
+                                              (set inString (not inString))))
+                            (LPAREN	(unless inString (set count (- count 1))))
+                            (RPAREN (unless inString (set count (+ count 1))))
                             (else   nil))
                       (if (eq count 0)
                           (then (set found YES))
                           (else (set index (+ index 1)))))
-               (if found (then index) (else -1)))))
+               (if found
+                   (then index)
+                   (else (if inString (then position) (else -1)))))))
 
 ;; @abstract Value transformer class for binding to menu item.
 ;; @discussion This class is part of the Nu console implementation.
